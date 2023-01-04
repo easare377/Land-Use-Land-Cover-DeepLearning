@@ -1,0 +1,469 @@
+<html>
+
+<head>
+    <style>
+        body {
+            position: relative;
+            cursor: normal;
+        }
+
+        #tooltip {
+            position: absolute;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 30px;
+            min-width: 90px;
+            background-color: white;
+            z-index: 1;
+            color: black;
+            border-radius: 5px;
+            border: 1px solid gray;
+            cursor: default;
+            pointer-events: none;
+            padding: 5px;
+        }
+
+        #map {
+            display: flex;
+            justify-content: start;
+        }
+
+        canvas {
+            /* zoom: 200%; */
+            overflow: hidden;
+            flex: 1;
+        }
+
+        #legend {
+            width: 400px;
+            background-color: white;
+            overflow: hidden;
+        }
+
+        #classes-title {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            height: 50px;
+            background-color: lightgrey;
+            padding: 0 10px;
+            font-size: 15px;
+            color: black;
+        }
+
+        .dropdown {
+            display: inline-block;
+            position: relative;
+            width: 100%;
+            height: 100%;
+            /*display: inline-block;*/
+        }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            z-index: 1;
+            background: white;
+        }
+
+        .arrow {
+            border: solid dodgerblue;
+            border-width: 0 3px 3px 0;
+            display: inline-block;
+            padding: 5px;
+        }
+
+        .arrow-small {
+            border-width: 0 1px 1px 0;
+            padding: 3px;
+        }
+
+        .a-right {
+            transform: rotate(-45deg);
+            -webkit-transform: rotate(-45deg);
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        li {
+            display: flex;
+            justify-content: left;
+            align-items: center;
+            height: 50px;
+            width: 150px;
+            color: black;
+            padding: 0 10px;
+            cursor: pointer;
+        }
+
+
+
+        li:hover {
+            background-color: lightgrey;
+        }
+
+        .show {
+            display: block;
+        }
+
+        .hide {
+            display: none;
+        }
+
+        #legend-list {
+            height: 500px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .legend-color {
+            margin-left: 5px;
+            height: 10px;
+            width: 50px;
+            border: 1px solid black;
+            /* background-color: red; */
+        }
+
+        .class-info {
+            width: 100% !important;
+        }
+
+        .class-name {
+            width: 200px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="label"></div>
+    <div id="map"><canvas id="myCanvas" class="dropdown" style="border:1px solid #c3c3c3;">
+            Your browser does not support the canvas element.
+        </canvas>
+        <!--Legend-->
+        <div id="legend">
+            <div id="classes-title">
+                <input id="select-all-class" type="checkbox" checked>
+                Classes
+                <!-- <span class="legend-color"></span> -->
+            </div>
+            <ul id="legend-list">
+
+            </ul>
+        </div>
+    </div>
+    <!-- <img id="map_im" src="html/land_use_land_cover_map.png" /> -->
+    <div id="tooltip" onclick="log('hello')"></div>
+    <div id="context-menu" class="dropdown-content">
+        <ul>
+            <li id="select-class">Show Class</li>
+            <li>Select Class</li>
+        </ul>
+    </div>
+</body>
+
+<script src="https://code.jquery.com/jquery-3.6.2.min.js"></script>
+<script type="text/javascript">
+    var canvas;
+    var tooltip;
+    var contextMenu;
+    var mousePos = {
+        x: 0,
+        y: 0
+    }
+    var classControlMap = new Map();
+    var defaultImage;
+    var color_encoding = {
+        '[255, 0, 0]': 'Degraded Gallery Forest',
+        '[60, 154, 206]': 'Wetland',
+        '[50, 50, 50]': 'Landfill',
+        '[0, 255, 0]': 'Plantation',
+        '[98, 124, 61]': 'Mangrove',
+        '[217, 212, 12]': 'Agric',
+        '[0, 1, 128]': 'Waterbody',
+        '[255, 223, 167]': 'Sandy Area',
+        '[180, 96, 0]': 'Rocky Land',
+        '[142, 125, 115]': 'Bare Soil',
+        '[251, 72, 196]': 'Settlement',
+        '[179, 227, 214]': 'Irrigated Agric',
+        '[255, 128, 64]': 'Gallery',
+        '[41, 49, 28]': 'Shrub and Tee Savanna',
+        '[231, 177, 106]': 'Wooded Savanna',
+        '[65, 100, 34]': 'Forest',
+        '[50, 50, 50]': 'Salt Pan',
+        '[119, 85, 60]': 'Degraded',
+        '[128, 64, 255]': 'Bowe',
+        '[90, 64, 128]': 'Agriculture in Shallow and Recession',
+        '[255, 64, 64]': 'Woodland',
+        '[0, 255, 255]': 'Dam',
+        '[128, 0, 64]': 'Herbaecous Savanna',
+        '[255, 255, 255]': 'Shrub Land',
+        '[0, 0, 0]': 'No Data'
+    }
+
+
+    jQuery(document).ready(function ($) {
+        var label = document.getElementById('label');
+        canvas = document.getElementById('myCanvas');
+        tooltip = document.getElementById('tooltip');
+        contextMenu = document.getElementById('context-menu');
+        var map_im = document.getElementById('map_im');
+        var selectAllClassCheckbox = document.getElementById('select-all-class');
+        // defaultImage.src = 'html/land_use_land_cover_map.png';
+        var legend_ul = document.getElementById('legend-list');
+        for (encoding in color_encoding) {
+            legend_ul.appendChild(createLegend(encoding));
+        }
+        selectAllClassCheckbox.onchange = function (event) {
+            var checked = event.currentTarget.checked;
+            classControlMap.forEach(c => c.setChecked(checked));
+            showImage();
+        }
+        showImage();
+    });
+
+    function createLegend(class_info) {
+        var vals = class_info.replace('[', '').replace(']', '').replace(/ /g, '').split(',');
+        var r = Number(vals[0])
+        var g = Number(vals[1])
+        var b = Number(vals[2]);
+        var classData = {
+            rgb: undefined,
+            checked: undefined,
+            setChecked: undefined
+        };
+        var li = document.createElement("li");
+        li.classList.add('class-info')
+        var input = document.createElement("input");
+        input.type = 'checkbox';
+        input.checked = true;
+        if (r + g + b === 0) {
+            input.disabled = true;
+        }
+        classData.checked = input.checked
+        var classNameSpan = document.createElement("span");
+        classNameSpan.classList.add('class-name');
+        classNameSpan.innerText = color_encoding[class_info];
+        var legendColorSpan = document.createElement("span");
+        legendColorSpan.classList.add('legend-color')
+        li.appendChild(input);
+        li.appendChild(classNameSpan);
+        li.appendChild(legendColorSpan);
+        legendColorSpan.style.backgroundColor = "rgb" + class_info.replace('[', '(').replace(']', ')');
+        classData.rgb = (r, g, b);
+        input.onchange = function (event) {
+            classData.checked = event.currentTarget.checked;
+            showImage();
+        }
+        classData.setChecked = function (value) {
+            if (r + g + b > 0) {
+                input.checked = value;
+                classData.checked = input.checked
+            }
+        }
+        li.onclick = function (e) {
+            log('clicked');
+            classData.setChecked(!classData.checked);
+            showImage();
+        }
+        classControlMap.set(rgbToText(r, g, b), classData);
+        return li;
+    }
+
+    function findPos(obj) {
+        var current_left = 0,
+            current_top = 0;
+        if (obj.offsetParent) {
+            do {
+                current_left += obj.offsetLeft;
+                current_top += obj.offsetTop;
+            } while (obj = obj.offsetParent);
+            return {
+                x: current_left,
+                y: current_top
+            };
+        }
+        return undefined;
+    }
+
+    function rgbToHex(r, g, b) {
+        if (r > 255 || g > 255 || b > 255)
+            throw "Invalid color component";
+        return ((r << 16) | (g << 8) | b).toString(16);
+    }
+
+    // $('#myCanvas').mouseenter(function () {
+    // tooltip.style.display = "block"
+    // });
+
+    function log(message) {
+        var label = document.getElementById('label');
+        label.innerText = message
+    }
+
+    $('#myCanvas').mousemove(function (e) {
+        var label = document.getElementById('label');
+        // var tooltip = document.getElementById('tooltip');
+        var position = findPos(this);
+        var x = e.pageX - position.x;
+        var y = e.pageY - position.y;
+        const bb = this.getBoundingClientRect();
+        const c_x = Math.floor((event.clientX - bb.left) / bb.width * canvas.width);
+        const c_y = Math.floor((event.clientY - bb.top) / bb.height * canvas.height);
+        // var coordinate = "x=" + x + ", y=" + y;
+        var context = this.getContext('2d');
+
+        var p = context.getImageData(c_x, c_y, 1, 1).data;
+        label.innerText = '(' + c_x + ", " + c_y + ')';
+        // label.innerText = '[' + p[0] + ", " + p[1] + ", " + p[2] + ']';
+        // var hex = "#" + ("000000" + rgbToHex(p[0], p[1], p[2])).slice(-6);
+        var rgb = '[' + p[0] + ", " + p[1] + ", " + p[2] + ']';
+        // label.innerText = rgb;
+        // canvas.title = rgb
+        tooltip.innerText = color_encoding[rgb]
+        // tooltip.style.display = "block"
+        tooltip.style.left = (x + 10) + "px";
+        tooltip.style.top = (y + 10) + "px";
+    });
+
+    $('#context-menu').click(function (e) {
+        contextMenu.style.display = 'none';
+    })
+
+    $('#myCanvas').click(function (e) {
+
+        var position = findPos(this);
+        var x = e.pageX - position.x;
+        var y = e.pageY - position.y;
+        mousePos.x = x;
+        mousePos.y = y;
+        tooltip.style.display = 'block';
+        contextMenu.style.display = 'none';
+    });
+
+    $('#myCanvas').contextmenu(function (e) {
+        var selectClassEl = document.getElementById('select-class');
+        var position = findPos(this);
+        var x = e.pageX - position.x;
+        var y = e.pageY - position.y;
+        const bb = this.getBoundingClientRect();
+        const c_x = Math.floor((event.clientX - bb.left) / bb.width * canvas.width);
+        const c_y = Math.floor((event.clientY - bb.top) / bb.height * canvas.height);
+        mousePos.x = c_x;
+        mousePos.y = c_y;
+        // var contextMenu = document.getElementById('context-menu');
+        contextMenu.style.display = 'block';
+        contextMenu.style.left = (x) + "px";
+        contextMenu.style.top = (y) + "px";
+        selectClassEl.innerText = `Show ${tooltip.innerText} class only`
+        tooltip.style.display = 'none';
+    })
+
+    $('#myCanvas').mouseenter(function (e) {
+        tooltip.style.display = 'flex';
+    })
+
+    $('#myCanvas').mouseleave(function (e) {
+        tooltip.style.display = 'none';
+    })
+
+    // $('#select-class').click(function () {
+    //     var label = document.getElementById('label');
+    //     label.innerText = mousePos.x;
+    //     var context = canvas.getContext('2d');
+    //     var p = context.getImageData(mousePos.x, mousePos.y, 1, 1).data;
+    //     showSelectedClass(p[0], p[1], p[2]);
+    //     // var pRgb = rgbToText(p[0], p[1], p[2]);
+    //     // const imgData = context.getImageData(0, 0, context.canvas.width, context.canvas.height);
+    //     // const data = imgData.data;
+    //     // const newData = [];
+    //     // var bRgb = rgbToText(0, 0, 0);
+    //     // // enumerate all pixels
+    //     // // each pixel's r,g,b,a datum are stored in separate sequential array elements
+    //     // for (let i = 0; i < data.length; i += 4) {
+    //     //     const red = data[i];
+    //     //     const green = data[i + 1];
+    //     //     const blue = data[i + 2];
+    //     //     rgb = rgbToText(red, green, blue);
+    //     //     if (!(rgb === pRgb || rgb === bRgb)) {
+    //     //         data[i] = 70;
+    //     //         data[i + 1] = 70;
+    //     //         data[i + 2] = 70;
+    //     //     }
+    //     //     // const alpha = data[i + 3];
+    //     // }
+    //     // context.putImageData(imgData, 0, 0);
+    // })
+
+    function showImage() {
+        var context = canvas.getContext('2d');
+        var img = new Image();
+        img.onload = function () {
+            context.canvas.height = img.height;
+            context.canvas.width = img.width;
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+            context.drawImage(img, 0, 0, img.width, img.height);
+            const imgData = context.getImageData(0, 0, context.canvas.width, context.canvas.height);
+            const data = imgData.data;
+            // var newData = [...data];
+            // log(' pixels')
+            var bRgb = rgbToText(0, 0, 0);
+
+            // enumerate all pixels
+            // each pixel's r,g,b,a datum are stored in separate sequential array elements
+            for (let i = 0; i < data.length; i += 4) {
+                const red = data[i];
+                const green = data[i + 1];
+                const blue = data[i + 2];
+                rgb = rgbToText(red, green, blue);
+                var classControlData = classControlMap.get(rgb);
+                if (!classControlData.checked) {
+                    imgData.data[i] = 10;
+                    imgData.data[i + 1] = 10;
+                    imgData.data[i + 2] = 10;
+                }
+                // log(classControlData)
+            }
+            context.putImageData(imgData, 0, 0);
+        }
+        img.src = 'html/land_use_land_cover_map.png';
+    }
+
+    function showSelectedClass(r, g, b) {
+        var pRgb = rgbToText(r, g, b);
+        var context = canvas.getContext('2d');
+        const imgData = context.getImageData(0, 0, context.canvas.width, context.canvas.height);
+        const data = imgData.data;
+        // const newData = [...data];
+        var bRgb = rgbToText(0, 0, 0);
+        // enumerate all pixels
+        // each pixel's r,g,b,a datum are stored in separate sequential array elements
+        for (let i = 0; i < data.length; i += 4) {
+            const red = data[i];
+            const green = data[i + 1];
+            const blue = data[i + 2];
+            rgb = rgbToText(red, green, blue);
+            if (!(rgb === pRgb || rgb === bRgb)) {
+                data[i] = 70;
+                data[i + 1] = 70;
+                data[i + 2] = 70;
+            }
+        }
+        context.putImageData(imgData, 0, 0);
+    }
+
+    function rgbToText(r, g, b) {
+        return `${r} ${g} ${b}`;
+    }
+
+    // $('#myCanvas').mouseleave(function () {
+    //     tooltip.style.display = "none"
+    // });
+</script>
+
+</html>

@@ -1,0 +1,118 @@
+ body {
+     position: relative;
+     cursor: normal;
+ }
+
+ #tooltip {
+     position: absolute;
+     display: flex;
+     justify-content: center;
+     align-items: center;
+     min-height: 30px;
+     min-width: 90px;
+     background-color: white;
+     z-index: 1;
+     color: black;
+     border-radius: 5px;
+     border: 1px solid gray;
+     cursor: default;
+     pointer-events: none;
+     padding: 5px;
+ }
+
+ #map {
+     display: flex;
+     justify-content: start;
+ }
+
+ canvas {
+     /* zoom: 200%; */
+     overflow: hidden;
+     flex: 1;
+ }
+
+ #legend {
+     width: 400px;
+     background-color: white;
+     overflow: hidden;
+ }
+
+ .dropdown {
+     display: inline-block;
+     position: relative;
+     width: 100%;
+     height: 100%;
+     /*display: inline-block;*/
+ }
+
+ .dropdown-content {
+     display: none;
+     position: absolute;
+     z-index: 1;
+     background: white;
+ }
+
+ .arrow {
+     border: solid dodgerblue;
+     border-width: 0 3px 3px 0;
+     display: inline-block;
+     padding: 5px;
+ }
+
+ .arrow-small {
+     border-width: 0 1px 1px 0;
+     padding: 3px;
+ }
+
+ .a-right {
+     transform: rotate(-45deg);
+     -webkit-transform: rotate(-45deg);
+ }
+
+ ul {
+     list-style-type: none;
+     padding: 0;
+     margin: 0;
+ }
+
+ li {
+     display: flex;
+     justify-content: left;
+     align-items: center;
+     height: 50px;
+     width: 150px;
+     color: black;
+     padding: 0 10px;
+     cursor: pointer;
+ }
+
+
+
+ li:hover {
+     background-color: lightgrey;
+ }
+
+ .show {
+     display: block;
+ }
+
+ .hide {
+     display: none;
+ }
+
+ .legend-color {
+     margin-left: 5px;
+     height: 10px;
+     width: 50px;
+     border: 1px solid black;
+     /* background-color: red; */
+ }
+
+ .class-info {
+     width: 100% !important;
+ }
+
+ .class-name {
+     width: 200px;
+ }
+
